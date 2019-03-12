@@ -13,6 +13,7 @@ import (
 )
 
 type PlayerMap struct {
+	Name       string                    `json:"name"`
 	Players    map[string]*player.Player `json:"players"`
 	PlayMap    map[int][]*node.Data      `json:"play_map"`
 	PlayerChan chan *player.Player       `json:"-"`
@@ -99,7 +100,19 @@ func (playerMap *PlayerMap) Play(operat Operat) error {
 }
 
 // playMap
-func (playerMap *PlayerMap) GetClientInfo(name string) string {
+func GetClientInfo(name string) (*ClientInfo, error) {
+	conn := db.RedisPool.Get()
+	defer conn.Close()
+
+	data, err := redis.Bytes(conn.Do("GET", "play_map"))
+	if err != nil {
+		return nil, err
+	}
+
+	playerMap := PlayerMap{}
+	if err := json.Unmarshal(data, &playerMap); err != nil {
+		return nil, err
+	}
 	mine := playerMap.Players[name]
 	others := make([]*player.Player, len(playerMap.Players)-1)
 	for _, user := range playerMap.Players {
@@ -107,13 +120,13 @@ func (playerMap *PlayerMap) GetClientInfo(name string) string {
 			others = append(others, user)
 		}
 	}
-	clientInfo := ClientInfo{
+	clientInfo := &ClientInfo{
 		Mine:   mine,
 		Others: others,
-		Map:    playerMap.PlayMap,
+		//Foods:  len(playerMap.PlayMap[player.DATA_TYPE_FOOD]),
+		Map: playerMap.PlayMap,
 	}
-	bytes, _ := json.Marshal(clientInfo)
-	return string(bytes)
+	return clientInfo, nil
 }
 
 // playMap read

@@ -98,3 +98,16 @@ func (player *Player) CheckBodyStatus() error {
 	}
 	return nil
 }
+
+func (player *Player) Convert() []node.Data {
+	body := make([]node.Data, 0)
+	nodeEntry := player.Body.Node.Next
+	for {
+		body = append(body, nodeEntry.Data)
+		if nodeEntry.Next == nil {
+			break
+		}
+		nodeEntry = nodeEntry.Next
+	}
+	return body
+}

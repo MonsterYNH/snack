@@ -20,7 +20,7 @@ func main() {
 	for input.Scan() {
 		go func() {
 			if err := recover(); err != nil {
-				fmt.Println(err)
+				fmt.Println("Error: ", err)
 			}
 		}() //扫描输入内容
 		line := input.Text() //把输入内容转换为字符串
