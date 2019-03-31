@@ -1,13 +1,13 @@
 package middleware
 
 import (
-	"fmt"
 	"net/http"
 	"snack/controller/common"
 	"snack/db"
-	model "snack/model/user"
+	User "snack/model/user"
 	"strings"
-	"time"
+
+	mgo "gopkg.in/mgo.v2"
 
 	jwt "github.com/dgrijalva/jwt-go"
 	"github.com/gin-gonic/gin"
@@ -26,34 +26,36 @@ func JwtAuth() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		if c.Request.RequestURI == "/user/regist" && c.Request.Method == "POST" {
 			c.Next()
+			return
 		}
 		if strings.HasPrefix(c.Request.RequestURI, "/user/login") && c.Request.Method == "POST" {
 			c.Next()
+			return
 		}
 		token := c.Request.Header.Get("authorization")
 		customClaims, code := ParseToken(token)
-		if code > 0 {
+		if code > 0 && customClaims == nil {
 			c.JSON(http.StatusOK, common.ResponseError(code))
 			c.Abort()
+			return
 		}
-		if !bson.IsObjectIdHex(customClaims.ID) {
+		if !bson.IsObjectIdHex((*customClaims).ID) {
 			c.JSON(http.StatusOK, common.ResponseError(common.ID_NOT_EXIST))
 			c.Abort()
+			return
 		}
-		user, err := model.GetUser(bson.M{"_id": bson.ObjectIdHex(customClaims.ID), "status": db.STATUS_USER_NORMAL})
+		user, err := User.GetUser(bson.M{"_id": bson.ObjectIdHex(customClaims.ID), "status": db.STATUS_USER_NORMAL})
 		if err != nil {
-			c.JSON(http.StatusOK, common.ResponseError(common.USER_NOT_EXIST))
+			if err == mgo.ErrNotFound {
+				c.JSON(http.StatusOK, common.ResponseError(common.USER_NOT_EXIST))
+				c.Abort()
+				return
+			}
+			c.JSON(http.StatusOK, common.ResponseError(common.SERVER_ERROR))
 			c.Abort()
 			return
 		}
 		c.Set("user", user)
-		c.Next()
-	}
-}
-
-func Test() gin.HandlerFunc {
-	return func(c *gin.Context) {
-		fmt.Println(123)
 		c.Next()
 	}
 }
@@ -81,12 +83,7 @@ func ParseToken(tokenString string) (*CustomClaims, int) {
 			}
 		}
 	}
-	jwt.TimeFunc = func() time.Time {
-		return time.Unix(0, 0)
-	}
 	if claims, ok := token.Claims.(*CustomClaims); ok && token.Valid {
-		jwt.TimeFunc = time.Now
-		claims.StandardClaims.ExpiresAt = time.Now().Add(1 * time.Hour).Unix()
 		return claims, common.SUCCESS
 	}
 	return nil, common.TOKEN_INVALID

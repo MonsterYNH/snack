@@ -5,17 +5,20 @@ import (
 )
 
 type UserLoginEntry struct {
-	Type     string `json:"type"`
+	Type     string `json:"type" binding:"required"`
 	Phone    string `json:"phone"`
 	Email    string `json:"email"`
 	Account  string `json:"account"`
-	Password string `json:"password"`
+	Password string `json:"password" binding:"required"`
 }
 
 type UserRegistEntry struct {
-	model.User
-	Agreement bool   `json:"agreement"`
-	Confirm   string `json:"confirm"`
+	// model.User
+	// Agreement bool   `json:"agreement"`
+	Type     string `json:"type" binding:"required"`
+	Account  string `json:"account" binding:"required"`
+	Password string `json:"password" binding:"required"`
+	Confirm  string `json:"confirm" binding:"required"`
 }
 
 type UserInfoEntry struct {

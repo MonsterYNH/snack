@@ -2,6 +2,7 @@ package model
 
 import (
 	"snack/db"
+	"strconv"
 	"time"
 
 	mgo "gopkg.in/mgo.v2"
@@ -26,7 +27,7 @@ type User struct {
 	LastLoginTime int64         `json:"-" bson:"last_login_time"`
 }
 
-func CreateUser(user *User) (*User, error) {
+func CreateUser(user User) (*User, error) {
 	session := db.GetMgoSession()
 	defer session.Close()
 
@@ -34,10 +35,13 @@ func CreateUser(user *User) (*User, error) {
 	user.Status = db.STATUS_USER_NORMAL
 	user.CreateTime = time.Now().Unix()
 	user.LastLoginTime = time.Now().Unix()
+	if len(user.Name) == 0 {
+		user.Name = strconv.FormatInt(time.Now().Unix(), 10)
+	}
 	if err := session.DB(db.DB_NAME).C(db.COLL_USER).Insert(user); err != nil {
 		return nil, err
 	}
-	return user, nil
+	return &user, nil
 }
 
 func GetUsers(query bson.M, start, limit int, args ...string) ([]User, error) {

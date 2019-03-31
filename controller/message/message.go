@@ -15,7 +15,8 @@ import (
 type MessageController struct{}
 
 func (message *MessageController) GetMessageList(c *gin.Context) {
-	id := c.Param("id")
+	userInfo, _ := c.Get("user")
+	userInfoEntry, _ := userInfo.(*User.User)
 	start, err := strconv.Atoi(c.DefaultQuery("start", "1"))
 	if err != nil {
 		c.JSON(http.StatusOK, common.ResponseError(common.PARAMETER_ERR))
@@ -26,12 +27,12 @@ func (message *MessageController) GetMessageList(c *gin.Context) {
 		c.JSON(http.StatusOK, common.ResponseError(common.PARAMETER_ERR))
 		return
 	}
-	messages, err := Message.GetUserMessage(bson.ObjectIdHex(id))
+	messages, err := Message.GetUserMessage(userInfoEntry.ID)
 	if err != nil {
 		c.JSON(http.StatusOK, common.ResponseError(common.SERVER_ERROR))
 		return
 	}
-	total, err := Message.GetUserMessageCount(bson.ObjectIdHex(id))
+	total, err := Message.GetUserMessageCount(userInfoEntry.ID)
 	if err != nil {
 		c.JSON(http.StatusOK, common.ResponseError(common.SERVER_ERROR))
 		return
@@ -57,4 +58,14 @@ func (message *MessageController) GetMessageCount(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, common.ResponseSuccess(gin.H{"count": count}, nil))
+}
+
+func (message *MessageController) SetMessageRead(c *gin.Context) {
+	id := c.Param("id")
+	err := Message.SetUserMessageRead(bson.ObjectIdHex(id))
+	if err != nil {
+		c.JSON(http.StatusOK, common.ResponseError(common.SERVER_ERROR))
+		return
+	}
+	c.JSON(http.StatusOK, common.ResponseSuccess(true, nil))
 }

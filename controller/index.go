@@ -28,7 +28,7 @@ func init() {
 		userApi.POST("/login", userController.UserLogin)
 
 		// 获取用户信息
-		userApi.GET("/info/:id", userController.GetUserInfo)
+		userApi.GET("/info", userController.GetUserInfo)
 
 		// 用户注销登陆
 		userApi.PUT("/logout/:id", userController.UserLogout)
@@ -44,9 +44,11 @@ func init() {
 	messageApi := router.Group("/message")
 	{
 		// 获取消息列表
-		messageApi.GET("/list/:id", messageController.GetMessageList)
+		messageApi.GET("/list", messageController.GetMessageList)
 		// 获取消息总数
 		messageApi.GET("/count", messageController.GetMessageCount)
+		// 标记消息已读
+		messageApi.PUT("/read/:id", messageController.SetMessageRead)
 	}
 
 	indexController := index.IndexController{}

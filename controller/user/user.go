@@ -20,26 +20,48 @@ import (
 type UserController struct{}
 
 func (controller *UserController) GetUserInfo(c *gin.Context) {
+	if userInfo, exist := c.Get("user"); exist {
+		if user, isTrue := userInfo.(*User.User); isTrue {
+			var userInfoEntry UserInfoEntry
+			var err error
+			bytes, _ := json.Marshal(user)
+			if err = json.Unmarshal(bytes, &userInfoEntry); err != nil {
+				c.JSON(http.StatusOK, common.ResponseError(common.MARSHAML_ERROR))
+				return
+			}
+			userInfoEntry.MessageCount, err = Message.GetUserMessageCount(userInfoEntry.ID)
+			if err != nil {
+				c.JSON(http.StatusOK, common.ResponseError(common.SERVER_ERROR))
+				return
+			}
+			c.JSON(http.StatusOK, common.ResponseSuccess(userInfoEntry, nil))
+			return
+		}
+	}
 	id := c.Param("id")
 	user, err := User.GetUser(bson.M{"_id": bson.ObjectIdHex(id), "status": db.STATUS_USER_NORMAL})
-
-	var userInfoEntry UserInfoEntry
-	bytes, _ := json.Marshal(user)
-	if err := json.Unmarshal(bytes, &userInfoEntry); err != nil {
-		c.JSON(http.StatusOK, common.ResponseError(common.MARSHAML_ERROR))
-		return
-	}
-	userInfoEntry.MessageCount, err = Message.GetUserMessageCount(userInfoEntry.ID)
 	if err != nil {
 		c.JSON(http.StatusOK, common.ResponseError(common.SERVER_ERROR))
 		return
 	}
-	c.JSON(http.StatusOK, common.ResponseSuccess(userInfoEntry, nil))
+
+	// var userInfoEntry UserInfoEntry
+	// bytes, _ := json.Marshal(user)
+	// if err := json.Unmarshal(bytes, &userInfoEntry); err != nil {
+	// 	c.JSON(http.StatusOK, common.ResponseError(common.MARSHAML_ERROR))
+	// 	return
+	// }
+	// userInfoEntry.MessageCount, err = Message.GetUserMessageCount(userInfoEntry.ID)
+	// if err != nil {
+	// 	c.JSON(http.StatusOK, common.ResponseError(common.SERVER_ERROR))
+	// 	return
+	// }
+	c.JSON(http.StatusOK, common.ResponseSuccess(convertUserInfo(user), nil))
 }
 
 func (controller *UserController) UserLogin(c *gin.Context) {
 	var loginEntry UserLoginEntry
-	if err := c.BindJSON(&loginEntry); err != nil {
+	if err := c.ShouldBindJSON(&loginEntry); err != nil {
 		log.Println("Error: user login failed, error: ", err)
 		c.JSON(http.StatusOK, common.ResponseError(common.PARAMETER_ERR))
 		return
@@ -52,10 +74,10 @@ func (controller *UserController) UserLogin(c *gin.Context) {
 		query["account"] = loginEntry.Account
 	case "email":
 		// TODO 邮件校验 验证码校验
-		query["email"] = loginEntry.Email
+		query["email"] = loginEntry.Account
 	case "phone":
 		// TODO 手机校验 验证码校验
-		query["phone"] = loginEntry.Phone
+		query["phone"] = loginEntry.Account
 	default:
 		c.JSON(http.StatusOK, common.ResponseError(common.PARAMETER_ERR))
 		return
@@ -70,17 +92,22 @@ func (controller *UserController) UserLogin(c *gin.Context) {
 		c.JSON(http.StatusOK, common.ResponseError(common.SERVER_ERROR))
 		return
 	}
-	bytes, _ := json.Marshal(user)
-	var userInfo UserInfoEntry
-	if err := json.Unmarshal(bytes, &userInfo); err != nil {
-		c.JSON(http.StatusOK, common.ResponseError(common.MARSHAML_ERROR))
-		return
-	}
+	// bytes, _ := json.Marshal(user)
+	// var userInfo UserInfoEntry
+	// if err := json.Unmarshal(bytes, &userInfo); err != nil {
+	// 	c.JSON(http.StatusOK, common.ResponseError(common.MARSHAML_ERROR))
+	// 	return
+	// }
 	token, _ := middleware.CreateToken(middleware.CustomClaims{
-		ID: userInfo.ID.Hex(),
+		ID: user.ID.Hex(),
 	})
+	// userInfo.MessageCount, err = Message.GetUserMessageCount(userInfo.ID)
+	// if err != nil {
+	// 	c.JSON(http.StatusOK, common.ResponseError(common.SERVER_ERROR))
+	// 	return
+	// }
 
-	c.JSON(http.StatusOK, common.ResponseSuccess(userInfo, token))
+	c.JSON(http.StatusOK, common.ResponseSuccess(convertUserInfo(user), token))
 }
 
 func (controller *UserController) UserLogout(c *gin.Context) {
@@ -94,43 +121,55 @@ func (controller *UserController) UserLogout(c *gin.Context) {
 
 func (controller *UserController) UserRegist(c *gin.Context) {
 	var userJson UserRegistEntry
-	if c.BindJSON(&userJson) != nil {
+	if c.ShouldBindJSON(&userJson) != nil {
 		c.JSON(http.StatusOK, common.ResponseError(common.PARAMETER_ERR))
 		return
 	}
-	if !userJson.Agreement {
-		c.JSON(http.StatusOK, common.ResponseError(common.PLEASE_AGREEMENT))
-		return
-	}
-	if userJson.Password != userJson.Confirm {
+	newUser := &User.User{}
+
+	if userJson.Password != userJson.Confirm && len(userJson.Password) == 0 {
 		c.JSON(http.StatusOK, common.ResponseError(common.DIFFERENT_PASSWORD))
 		return
 	}
-	bytes, _ := json.Marshal(userJson)
-	user := &User.User{}
-	if err := json.Unmarshal(bytes, user); err != nil {
-		c.JSON(http.StatusOK, common.ResponseError(common.MARSHAML_ERROR))
-		return
+	query := bson.M{
+		"status": 0,
 	}
-	var err error
-	user, err = User.GetUser(bson.M{"phone": user.Phone, "status": 0})
-	if err != nil && err != mgo.ErrNotFound {
-		c.JSON(http.StatusOK, common.ResponseError(common.SERVER_ERROR))
-		return
+	switch userJson.Type {
+	case "account":
+		query["account"] = userJson.Account
+		newUser.Account = userJson.Account
+	case "phone":
+		query["phone"] = userJson.Account
+		newUser.Phone = userJson.Account
+	case "email":
+		query["email"] = userJson.Account
+		newUser.Email = userJson.Account
 	}
-	if user != nil {
+	newUser.Password = userJson.Password
+	user, err := User.GetUser(query)
+	if err != nil {
+		if err != mgo.ErrNotFound {
+			c.JSON(http.StatusOK, common.ResponseError(common.SERVER_ERROR))
+			return
+		}
+	}
+	if bson.IsObjectIdHex(user.ID.Hex()) {
 		c.JSON(http.StatusOK, common.ResponseError(common.USER_EXIST))
 		return
 	}
-	user, err = User.CreateUser(user)
+	newUser, err = User.CreateUser(*newUser)
 	if err != nil {
 		c.JSON(http.StatusOK, common.ResponseError(common.SERVER_ERROR))
 		return
 	}
-	token, _ := middleware.CreateToken(middleware.CustomClaims{
-		ID: user.ID.Hex(),
+	if _, err = Message.CreateUserMessage(newUser.ID, bson.NewObjectId(), "welcome", "欢迎加入我们", 1, nil); err != nil {
+		c.JSON(http.StatusOK, common.ResponseError(common.SERVER_ERROR))
+		return
+	}
+	token, err := middleware.CreateToken(middleware.CustomClaims{
+		ID: newUser.ID.Hex(),
 	})
-	c.JSON(http.StatusOK, common.ResponseSuccess(user, token))
+	c.JSON(http.StatusOK, common.ResponseSuccess(convertUserInfo(newUser), token))
 	return
 }
 
@@ -161,4 +200,13 @@ func (controller *UserController) GetUserListByPage(c *gin.Context) {
 	}
 	c.JSON(http.StatusOK, common.ResponseSuccess(userPage, nil))
 	return
+}
+
+func convertUserInfo(user *User.User) *UserInfoEntry {
+	var userInfo UserInfoEntry
+	bytes, _ := json.Marshal(user)
+	_ = json.Unmarshal(bytes, &userInfo)
+	// 获取用户信息
+	userInfo.MessageCount, _ = Message.GetUserMessageCount(userInfo.ID)
+	return &userInfo
 }
