@@ -4,7 +4,6 @@ import (
 	"net/http"
 	"snack/controller/common"
 	Message "snack/model/message"
-	User "snack/model/user"
 	"strconv"
 
 	"gopkg.in/mgo.v2/bson"
@@ -15,8 +14,7 @@ import (
 type MessageController struct{}
 
 func (message *MessageController) GetMessageList(c *gin.Context) {
-	userInfo, _ := c.Get("user")
-	userInfoEntry, _ := userInfo.(*User.User)
+	userID, _ := c.Get("user_id")
 	start, err := strconv.Atoi(c.DefaultQuery("start", "1"))
 	if err != nil {
 		c.JSON(http.StatusOK, common.ResponseError(common.PARAMETER_ERR))
@@ -27,12 +25,12 @@ func (message *MessageController) GetMessageList(c *gin.Context) {
 		c.JSON(http.StatusOK, common.ResponseError(common.PARAMETER_ERR))
 		return
 	}
-	messages, err := Message.GetUserMessage(userInfoEntry.ID)
+	messages, err := Message.GetUserMessage(bson.ObjectIdHex(userID.(string)))
 	if err != nil {
 		c.JSON(http.StatusOK, common.ResponseError(common.SERVER_ERROR))
 		return
 	}
-	total, err := Message.GetUserMessageCount(userInfoEntry.ID)
+	total, err := Message.GetUserMessageCount(bson.ObjectIdHex(userID.(string)))
 	if err != nil {
 		c.JSON(http.StatusOK, common.ResponseError(common.SERVER_ERROR))
 		return
@@ -46,13 +44,8 @@ func (message *MessageController) GetMessageList(c *gin.Context) {
 }
 
 func (message *MessageController) GetMessageCount(c *gin.Context) {
-	user, _ := c.Get("user")
-	userEntry, exist := user.(User.User)
-	if !exist {
-		c.JSON(http.StatusOK, common.ResponseError(common.USER_NOT_EXIST))
-		return
-	}
-	count, err := Message.GetUserMessageCount(userEntry.ID)
+	userID, _ := c.Get("user_id")
+	count, err := Message.GetUserMessageCount(bson.ObjectIdHex(userID.(string)))
 	if err != nil {
 		c.JSON(http.StatusOK, common.ResponseError(common.SERVER_ERROR))
 		return

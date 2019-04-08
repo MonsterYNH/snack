@@ -3,11 +3,6 @@ package middleware
 import (
 	"net/http"
 	"snack/controller/common"
-	"snack/db"
-	User "snack/model/user"
-	"strings"
-
-	mgo "gopkg.in/mgo.v2"
 
 	jwt "github.com/dgrijalva/jwt-go"
 	"github.com/gin-gonic/gin"
@@ -24,14 +19,6 @@ const jwtKey = "mt_jwt_test"
 
 func JwtAuth() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		if c.Request.RequestURI == "/user/regist" && c.Request.Method == "POST" {
-			c.Next()
-			return
-		}
-		if strings.HasPrefix(c.Request.RequestURI, "/user/login") && c.Request.Method == "POST" {
-			c.Next()
-			return
-		}
 		token := c.Request.Header.Get("authorization")
 		customClaims, code := ParseToken(token)
 		if code > 0 && customClaims == nil {
@@ -39,23 +26,12 @@ func JwtAuth() gin.HandlerFunc {
 			c.Abort()
 			return
 		}
-		if !bson.IsObjectIdHex((*customClaims).ID) {
+		if !bson.IsObjectIdHex(customClaims.ID) {
 			c.JSON(http.StatusOK, common.ResponseError(common.ID_NOT_EXIST))
 			c.Abort()
 			return
 		}
-		user, err := User.GetUser(bson.M{"_id": bson.ObjectIdHex(customClaims.ID), "status": db.STATUS_USER_NORMAL})
-		if err != nil {
-			if err == mgo.ErrNotFound {
-				c.JSON(http.StatusOK, common.ResponseError(common.USER_NOT_EXIST))
-				c.Abort()
-				return
-			}
-			c.JSON(http.StatusOK, common.ResponseError(common.SERVER_ERROR))
-			c.Abort()
-			return
-		}
-		c.Set("user", user)
+		c.Set("user_id", customClaims.ID)
 		c.Next()
 	}
 }

@@ -20,23 +20,9 @@ import (
 type UserController struct{}
 
 func (controller *UserController) GetUserInfo(c *gin.Context) {
-	if userInfo, exist := c.Get("user"); exist {
-		if user, isTrue := userInfo.(*User.User); isTrue {
-			var userInfoEntry UserInfoEntry
-			var err error
-			bytes, _ := json.Marshal(user)
-			if err = json.Unmarshal(bytes, &userInfoEntry); err != nil {
-				c.JSON(http.StatusOK, common.ResponseError(common.MARSHAML_ERROR))
-				return
-			}
-			userInfoEntry.MessageCount, err = Message.GetUserMessageCount(userInfoEntry.ID)
-			if err != nil {
-				c.JSON(http.StatusOK, common.ResponseError(common.SERVER_ERROR))
-				return
-			}
-			c.JSON(http.StatusOK, common.ResponseSuccess(userInfoEntry, nil))
-			return
-		}
+	if user := common.GetUser(c); user != nil {
+		c.JSON(http.StatusOK, common.ResponseSuccess(user, nil))
+		return
 	}
 	id := c.Param("id")
 	user, err := User.GetUser(bson.M{"_id": bson.ObjectIdHex(id), "status": db.STATUS_USER_NORMAL})
@@ -44,18 +30,6 @@ func (controller *UserController) GetUserInfo(c *gin.Context) {
 		c.JSON(http.StatusOK, common.ResponseError(common.SERVER_ERROR))
 		return
 	}
-
-	// var userInfoEntry UserInfoEntry
-	// bytes, _ := json.Marshal(user)
-	// if err := json.Unmarshal(bytes, &userInfoEntry); err != nil {
-	// 	c.JSON(http.StatusOK, common.ResponseError(common.MARSHAML_ERROR))
-	// 	return
-	// }
-	// userInfoEntry.MessageCount, err = Message.GetUserMessageCount(userInfoEntry.ID)
-	// if err != nil {
-	// 	c.JSON(http.StatusOK, common.ResponseError(common.SERVER_ERROR))
-	// 	return
-	// }
 	c.JSON(http.StatusOK, common.ResponseSuccess(convertUserInfo(user), nil))
 }
 
@@ -67,7 +41,6 @@ func (controller *UserController) UserLogin(c *gin.Context) {
 		return
 	}
 	query := make(map[string]interface{})
-	query["password"] = loginEntry.Password
 	switch loginEntry.Type {
 	case "account":
 		// TODO 账号校验 验证码校验
@@ -92,21 +65,13 @@ func (controller *UserController) UserLogin(c *gin.Context) {
 		c.JSON(http.StatusOK, common.ResponseError(common.SERVER_ERROR))
 		return
 	}
-	// bytes, _ := json.Marshal(user)
-	// var userInfo UserInfoEntry
-	// if err := json.Unmarshal(bytes, &userInfo); err != nil {
-	// 	c.JSON(http.StatusOK, common.ResponseError(common.MARSHAML_ERROR))
-	// 	return
-	// }
+	if user.Password != loginEntry.Password {
+		c.JSON(http.StatusOK, common.ResponseError(common.PASSWORD_WRONG))
+		return
+	}
 	token, _ := middleware.CreateToken(middleware.CustomClaims{
 		ID: user.ID.Hex(),
 	})
-	// userInfo.MessageCount, err = Message.GetUserMessageCount(userInfo.ID)
-	// if err != nil {
-	// 	c.JSON(http.StatusOK, common.ResponseError(common.SERVER_ERROR))
-	// 	return
-	// }
-
 	c.JSON(http.StatusOK, common.ResponseSuccess(convertUserInfo(user), token))
 }
 

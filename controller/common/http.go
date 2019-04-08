@@ -13,6 +13,7 @@ const (
 	PLEASE_AGREEMENT   = 2004
 	DIFFERENT_PASSWORD = 2005
 	ID_NOT_EXIST       = 2006
+	PASSWORD_WRONG     = 2007
 	// 服务器内部错误
 	SERVER_ERROR   = 3001
 	MARSHAML_ERROR = 3002
@@ -36,6 +37,7 @@ func init() {
 	codeMessageMap[PLEASE_AGREEMENT] = "please agreement"
 	codeMessageMap[DIFFERENT_PASSWORD] = "different password"
 	codeMessageMap[ID_NOT_EXIST] = "id not exist"
+	codeMessageMap[PASSWORD_WRONG] = "password wrong"
 	// 服务器内部错误
 	codeMessageMap[SERVER_ERROR] = "server err"
 	codeMessageMap[MARSHAML_ERROR] = "marshal err"
