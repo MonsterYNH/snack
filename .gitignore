@@ -1,2 +1,5 @@
 /.vscode
 /debug
+/bin/debug
+.gitignore
+/vender

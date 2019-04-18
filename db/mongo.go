@@ -1,7 +1,6 @@
 package db
 
 import (
-	"dappstatus/global"
 	"fmt"
 	"reflect"
 
@@ -12,7 +11,8 @@ import (
 var MongoSession *mgo.Session
 
 const (
-	DB_NAME = "blog"
+	MONGO_URI = "localhost:27017"
+	DB_NAME   = "blog"
 
 	COLL_USER    = "user"
 	COLL_MESSAGE = "message"
@@ -41,7 +41,7 @@ const (
 
 func init() {
 	var err error
-	MongoSession, err = mgo.Dial(global.MONGO_URI)
+	MongoSession, err = mgo.Dial(MONGO_URI)
 	if err != nil {
 		panic(fmt.Sprintf("Error: connect to mongo db failed, error: %s", err))
 	}
