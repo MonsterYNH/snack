@@ -1,6 +1,7 @@
 package model
 
 import (
+	"errors"
 	"snack/db"
 	"time"
 
@@ -27,9 +28,40 @@ type MessageInfo struct {
 	Content        string        `json:"content" bson:"content"`
 	Title          string        `json:"title" bson:"title"`
 	Type           int           `json:"type" bson:"type"`
+	CreateTime     int64         `json:"time" bson:"time"`
 }
 
-func CreateUserMessage(userID, fromUserID bson.ObjectId, tiitle, content string, messageType int, objectID *bson.ObjectId) (*Message, error) {
+const (
+	// 系统消息
+	SYSTEM_MESSAGE = 0
+	// 用户消息
+	USER_ARTICLE_LIKE          = 1001
+	USER_ARTICLE_COLLECT       = 1002
+	USER_ARTICLE_COMMENT       = 1003
+	USER_ARTICLE_COMMENT_LIKE  = 1004
+	USER_ARTICLE_COMMENT_REPLY = 1005
+)
+
+func SaveMessage(userID, fromUserID bson.ObjectId, content string, messageType int, objectID *bson.ObjectId) (*Message, error) {
+	switch messageType {
+	case SYSTEM_MESSAGE:
+		return CreateUserMessage(userID, fromUserID, "系统消息", content, messageType, objectID)
+	case USER_ARTICLE_LIKE:
+		return CreateUserMessage(userID, fromUserID, "点赞了你的文章", content, messageType, objectID)
+	case USER_ARTICLE_COLLECT:
+		return CreateUserMessage(userID, fromUserID, "收藏了你的文章", content, messageType, objectID)
+	case USER_ARTICLE_COMMENT:
+		return CreateUserMessage(userID, fromUserID, "评论了你的文章", content, messageType, objectID)
+	case USER_ARTICLE_COMMENT_LIKE:
+		return CreateUserMessage(userID, fromUserID, "在文章评论中点赞了你", content, messageType, objectID)
+	case USER_ARTICLE_COMMENT_REPLY:
+		return CreateUserMessage(userID, fromUserID, "在文章评论中回复了你", content, messageType, objectID)
+	default:
+		return nil, errors.New("not match any message type")
+	}
+}
+
+func CreateUserMessage(userID, fromUserID bson.ObjectId, title, content string, messageType int, objectID *bson.ObjectId) (*Message, error) {
 	session := db.GetMgoSession()
 	defer session.Close()
 
@@ -40,6 +72,7 @@ func CreateUserMessage(userID, fromUserID bson.ObjectId, tiitle, content string,
 		Type:       messageType,
 		ObjectId:   objectID,
 		Content:    content,
+		Title:      title,
 		Status:     0,
 		CreateTime: time.Now().Unix(),
 	}
@@ -47,26 +80,37 @@ func CreateUserMessage(userID, fromUserID bson.ObjectId, tiitle, content string,
 	return &message, err
 }
 
-func GetUserMessage(userID bson.ObjectId) ([]MessageInfo, error) {
+func GetUserMessage(userID string, start, limit int) (map[string]interface{}, error) {
 	session := db.GetMgoSession()
 	defer session.Close()
 
 	messageInfos := make([]MessageInfo, 0)
+	result := make(map[string]interface{})
+	match := bson.M{"user_id": bson.ObjectIdHex(userID), "status": 0}
 	aggregate := []bson.M{
-		bson.M{"$match": bson.M{"user_id": userID, "status": 0}},
+		bson.M{"$match": match},
+		bson.M{"$sort": bson.M{"create_time": -1}},
+		bson.M{"$skip": (start - 1) * limit},
+		bson.M{"$limit": limit},
 		bson.M{"$lookup": bson.M{"from": "user", "localField": "from_user_id", "foreignField": "_id", "as": "user_info"}},
 		bson.M{"$unwind": "$user_info"},
-		bson.M{"$project": bson.M{"from_user_id": "$from_user_id", "from_user_avatar": "$user_info.avatar", "object_id": "$user_info.object_id", "title": "$title", "content": "$content", "type": "$type", "id": "$_id", "_id": 0}},
+		bson.M{"$project": bson.M{"from_user_id": "$from_user_id", "from_user_avatar": "$user_info.avatar", "object_id": "$user_info.object_id", "title": "$title", "content": "$content", "type": "$type", "id": "$_id", "_id": 0, "time": "$create_time"}},
 	}
-	err := session.DB(db.DB_NAME).C(db.COLL_MESSAGE).Pipe(aggregate).All(&messageInfos)
-	return messageInfos, err
+	total, err := session.DB(db.DB_NAME).C(db.COLL_MESSAGE).Find(match).Count()
+	if err != nil {
+		return result, err
+	}
+	err = session.DB(db.DB_NAME).C(db.COLL_MESSAGE).Pipe(aggregate).All(&messageInfos)
+	result["total"] = total
+	result["data"] = messageInfos
+	return result, err
 }
 
-func GetUserMessageCount(userID bson.ObjectId) (int, error) {
+func GetUserMessageCount(userID string) (int, error) {
 	session := db.GetMgoSession()
 	defer session.Close()
 
-	return session.DB(db.DB_NAME).C(db.COLL_MESSAGE).Find(bson.M{"user_id": userID}).Count()
+	return session.DB(db.DB_NAME).C(db.COLL_MESSAGE).Find(bson.M{"user_id": bson.ObjectIdHex(userID), "status": 0}).Count()
 }
 
 func SetUserMessageRead(messageID bson.ObjectId) error {
@@ -74,4 +118,12 @@ func SetUserMessageRead(messageID bson.ObjectId) error {
 	defer session.Close()
 
 	return session.DB(db.DB_NAME).C(db.COLL_MESSAGE).UpdateId(messageID, bson.M{"$set": bson.M{"status": 1}})
+}
+
+func SetUserMessageReadAll(userId bson.ObjectId) error {
+	session := db.GetMgoSession()
+	defer session.Close()
+
+	_, err := session.DB(db.DB_NAME).C(db.COLL_MESSAGE).UpdateAll(bson.M{"user_id": userId}, bson.M{"$set": bson.M{"status": 1}})
+	return err
 }

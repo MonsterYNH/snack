@@ -18,6 +18,7 @@ const (
 	COLL_MESSAGE = "message"
 	COLL_BANNER  = "banner"
 	COLL_ARTICLE = "article"
+	COLL_COMMENT = "comment"
 )
 
 const (

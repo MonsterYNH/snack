@@ -8,3 +8,8 @@ type ArticleCreate struct {
 	Images     []string      `json:"images"`
 	CreateUser bson.ObjectId `json:"create_user"`
 }
+
+type ArticleListEntry struct {
+	Data  interface{} `json:"data"`
+	Total int         `json:"total"`
+}

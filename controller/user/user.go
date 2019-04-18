@@ -1,7 +1,6 @@
 package user
 
 import (
-	"encoding/json"
 	"log"
 	"net/http"
 	"snack/controller/common"
@@ -23,14 +22,28 @@ func (controller *UserController) GetUserInfo(c *gin.Context) {
 	if user := common.GetUser(c); user != nil {
 		c.JSON(http.StatusOK, common.ResponseSuccess(user, nil))
 		return
+	} else {
+		c.JSON(http.StatusOK, common.ResponseError(common.PLEASE_LOGIN))
+		return
 	}
+}
+
+func (controller *UserController) GetUserInfomation(c *gin.Context) {
 	id := c.Param("id")
 	user, err := User.GetUser(bson.M{"_id": bson.ObjectIdHex(id), "status": db.STATUS_USER_NORMAL})
 	if err != nil {
 		c.JSON(http.StatusOK, common.ResponseError(common.SERVER_ERROR))
 		return
 	}
-	c.JSON(http.StatusOK, common.ResponseSuccess(convertUserInfo(user), nil))
+	// 获取关注信息
+	if userId, exist := c.Get("user_id"); exist {
+		if err := user.GetUserFollowStatus(userId.(string)); err != nil {
+			c.JSON(http.StatusOK, common.ResponseError(common.SERVER_ERROR))
+			return
+		}
+	}
+	c.JSON(http.StatusOK, common.ResponseSuccess(user, nil))
+
 }
 
 func (controller *UserController) UserLogin(c *gin.Context) {
@@ -72,7 +85,7 @@ func (controller *UserController) UserLogin(c *gin.Context) {
 	token, _ := middleware.CreateToken(middleware.CustomClaims{
 		ID: user.ID.Hex(),
 	})
-	c.JSON(http.StatusOK, common.ResponseSuccess(convertUserInfo(user), token))
+	c.JSON(http.StatusOK, common.ResponseSuccess(user, token))
 }
 
 func (controller *UserController) UserLogout(c *gin.Context) {
@@ -127,14 +140,14 @@ func (controller *UserController) UserRegist(c *gin.Context) {
 		c.JSON(http.StatusOK, common.ResponseError(common.SERVER_ERROR))
 		return
 	}
-	if _, err = Message.CreateUserMessage(newUser.ID, bson.NewObjectId(), "welcome", "欢迎加入我们", 1, nil); err != nil {
+	if _, err = Message.SaveMessage(newUser.ID, bson.NewObjectId(), "欢迎加入我们", Message.SYSTEM_MESSAGE, nil); err != nil {
 		c.JSON(http.StatusOK, common.ResponseError(common.SERVER_ERROR))
 		return
 	}
 	token, err := middleware.CreateToken(middleware.CustomClaims{
 		ID: newUser.ID.Hex(),
 	})
-	c.JSON(http.StatusOK, common.ResponseSuccess(convertUserInfo(newUser), token))
+	c.JSON(http.StatusOK, common.ResponseSuccess(newUser, token))
 	return
 }
 
@@ -167,11 +180,18 @@ func (controller *UserController) GetUserListByPage(c *gin.Context) {
 	return
 }
 
-func convertUserInfo(user *User.User) *UserInfoEntry {
-	var userInfo UserInfoEntry
-	bytes, _ := json.Marshal(user)
-	_ = json.Unmarshal(bytes, &userInfo)
-	// 获取用户信息
-	userInfo.MessageCount, _ = Message.GetUserMessageCount(userInfo.ID)
-	return &userInfo
+func (controller *UserController) FollowUser(c *gin.Context) {
+	var userFollowJson UserFollowEntry
+	if err := c.ShouldBindJSON(&userFollowJson); err != nil {
+		c.JSON(http.StatusOK, common.ResponseError(common.PARAMETER_ERR))
+		return
+	}
+	operatorId, _ := c.Get("user_id")
+	userId := c.Param("id")
+
+	if err := User.FollowUser(userFollowJson.Option, bson.ObjectIdHex(userId), bson.ObjectIdHex(operatorId.(string))); err != nil {
+		c.JSON(http.StatusOK, common.ResponseError(common.SERVER_ERROR))
+		return
+	}
+	c.JSON(http.StatusOK, common.ResponseSuccess(gin.H{"status": true}, nil))
 }

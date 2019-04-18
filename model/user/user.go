@@ -1,6 +1,8 @@
 package model
 
 import (
+	"errors"
+	"fmt"
 	"snack/db"
 	"strconv"
 	"time"
@@ -10,6 +12,7 @@ import (
 )
 
 type User struct {
+	// 基本信息
 	ID            bson.ObjectId `json:"id" bson:"_id"`
 	Account       string        `json:"account" bson:"account"`
 	Password      string        `json:"-" bson:"password"`
@@ -25,6 +28,13 @@ type User struct {
 	Status        int           `json:"-" bson:"status"`
 	CreateTime    int64         `json:"-" bson:"create_time"`
 	LastLoginTime int64         `json:"-" bson:"last_login_time"`
+
+	// 用户关注信息
+	UserFollowed    []bson.ObjectId `json:"-" bson:"user_followed"`
+	UserFollowedNum int             `json:"user_followed_num" bson:"user_followed_num"`
+	FollowedUser    []bson.ObjectId `json:"-" bson:"followed_user"`
+	FollowedUserNum int             `json:"followed_user_num" bson:"followed_user_num"`
+	FollowStatus    string          `json:"follow_status" bson:"-"`
 }
 
 func CreateUser(user User) (*User, error) {
@@ -120,4 +130,56 @@ func (user *User) UpdateAllUser(query, update bson.M) (*mgo.ChangeInfo, error) {
 	defer session.Close()
 
 	return session.DB(db.DB_NAME).C(db.COLL_USER).UpdateAll(query, update)
+}
+
+func FollowUser(option string, userId, operatorId bson.ObjectId) error {
+	session := db.GetMgoSession()
+	defer session.Close()
+
+	switch option {
+	case "follow":
+		if err := session.DB(db.DB_NAME).C(db.COLL_USER).Update(bson.M{"_id": operatorId, "followed_user": bson.M{"$ne": userId}}, bson.M{"$addToSet": bson.M{"followed_user": userId}, "$inc": bson.M{"followed_user_num": 1}}); err != nil {
+			return err
+		}
+		if err := session.DB(db.DB_NAME).C(db.COLL_USER).Update(bson.M{"_id": userId, "user_followed": bson.M{"$ne": operatorId}}, bson.M{"$addToSet": bson.M{"user_followed": operatorId}, "$inc": bson.M{"user_followed_num": 1}}); err != nil {
+			return err
+		}
+	case "unfollow":
+		if err := session.DB(db.DB_NAME).C(db.COLL_USER).Update(bson.M{"_id": operatorId, "followed_user": userId}, bson.M{"$pull": bson.M{"followed_user": userId}, "$inc": bson.M{"followed_user_num": -1}}); err != nil {
+			return err
+		}
+		if err := session.DB(db.DB_NAME).C(db.COLL_USER).Update(bson.M{"_id": userId, "user_followed": operatorId}, bson.M{"$pull": bson.M{"user_followed": operatorId}, "$inc": bson.M{"user_followed_num": -1}}); err != nil {
+			return err
+		}
+	default:
+		return errors.New(fmt.Sprintf("not support option %s", option))
+	}
+
+	return nil
+}
+
+func (user *User) GetUserFollowStatus(operatorId string) error {
+	session := db.GetMgoSession()
+	defer session.Close()
+
+	userEntry := User{}
+	user.FollowStatus = "unfollow"
+	if err := session.DB(db.DB_NAME).C(db.COLL_USER).Find(bson.M{"_id": bson.ObjectIdHex(operatorId), "followed_user": user.ID}).One(&userEntry); err != nil {
+		fmt.Println(err)
+		if err == mgo.ErrNotFound {
+			return nil
+		} else {
+			return err
+		}
+	}
+	user.FollowStatus = "follow"
+	if err := session.DB(db.DB_NAME).C(db.COLL_USER).Find(bson.M{"_id": user.ID, "followed_user": operatorId}).One(&userEntry); err != nil {
+		if err == mgo.ErrNotFound {
+			return nil
+		} else {
+			return err
+		}
+	}
+	user.FollowStatus = "each"
+	return nil
 }

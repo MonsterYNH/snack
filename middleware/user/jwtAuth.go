@@ -36,6 +36,19 @@ func JwtAuth() gin.HandlerFunc {
 	}
 }
 
+func WithUser() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		token := c.Request.Header.Get("authorization")
+		customClaims, _ := ParseToken(token)
+		if customClaims != nil {
+			if bson.IsObjectIdHex(customClaims.ID) {
+				c.Set("user_id", customClaims.ID)
+			}
+		}
+		c.Next()
+	}
+}
+
 func CreateToken(claims CustomClaims) (string, error) {
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	return token.SignedString([]byte(jwtKey))

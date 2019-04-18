@@ -2,6 +2,7 @@ package controller
 
 import (
 	"snack/controller/article"
+	"snack/controller/community"
 	"snack/controller/index"
 	"snack/controller/message"
 	"snack/controller/user"
@@ -32,12 +33,16 @@ func init() {
 
 		// 获取用户信息
 		userApi.GET("/info", middleware.JwtAuth(), userController.GetUserInfo)
+		userApi.GET("/info/:id", middleware.JwtAuth(), userController.GetUserInfomation)
 
 		// 用户注销登陆
 		userApi.PUT("/logout/:id", middleware.JwtAuth(), userController.UserLogout)
 
 		// 用户列表
 		userApi.GET("/list", middleware.JwtAuth(), userController.GetUserListByPage)
+
+		// 用户关注
+		userApi.PUT("/follow/:id", middleware.JwtAuth(), userController.FollowUser)
 	}
 
 	// 消息
@@ -50,6 +55,8 @@ func init() {
 		messageApi.GET("/count", middleware.JwtAuth(), messageController.GetMessageCount)
 		// 标记消息已读
 		messageApi.PUT("/read/:id", middleware.JwtAuth(), messageController.SetMessageRead)
+		// 标记消息全部已读
+		messageApi.PUT("/readall", middleware.JwtAuth(), messageController.SetMessageReadAll)
 	}
 
 	// 主页
@@ -65,8 +72,24 @@ func init() {
 	articleApi := router.Group("/article")
 	{
 		// 获取文章列表
-		articleApi.GET("/list", articleController.GetArticleList)
+		articleApi.GET("/list", middleware.WithUser(), articleController.GetArticleList)
 		// 创建文章
 		articleApi.POST("/create", articleController.CreateArticle)
+	}
+
+	// 社区
+	communityController := community.CommunityController{}
+	communityApi := router.Group("/community")
+	{
+		// 社区通用操作
+		communityApi.POST("/option/:id", middleware.JwtAuth(), communityController.CommunityOption)
+		// 创建评论
+		communityApi.POST("/create/comment", middleware.JwtAuth(), communityController.CreateComment)
+		// 创建评论回复
+		communityApi.POST("/create/commentReply", middleware.JwtAuth(), communityController.CreateCommentReply)
+		// 获取评论列表
+		communityApi.GET("/comment/list", middleware.WithUser(), communityController.GetCommentByPage)
+		// 获取回复列表
+		communityApi.GET("/reply/list", communityController.GetCommentRepliesByPage)
 	}
 }

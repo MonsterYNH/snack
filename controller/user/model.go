@@ -35,3 +35,7 @@ type UserPage struct {
 	Total int         `json:"total"`
 	Data  interface{} `json:"data"`
 }
+
+type UserFollowEntry struct {
+	Option string `json:"option"`
+}
