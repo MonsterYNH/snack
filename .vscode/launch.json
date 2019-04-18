@@ -10,9 +10,7 @@
             "request": "launch",
             "mode": "auto",
             "program": "${workspaceRoot}/bin/socket.go",
-            "env": {
-                "GOPATH":"/Users/spiderstore/go"
-            },
+            "env": {},
             "args": []
         }
     ]
