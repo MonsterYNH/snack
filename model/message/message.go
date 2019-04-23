@@ -34,12 +34,19 @@ type MessageInfo struct {
 const (
 	// 系统消息
 	SYSTEM_MESSAGE = 0
-	// 用户消息
-	USER_ARTICLE_LIKE          = 1001
-	USER_ARTICLE_COLLECT       = 1002
-	USER_ARTICLE_COMMENT       = 1003
-	USER_ARTICLE_COMMENT_LIKE  = 1004
-	USER_ARTICLE_COMMENT_REPLY = 1005
+	// 1XXX 系统信息保留字段
+
+	// 2XXX 文章相关
+	USER_ARTICLE_LIKE          = 2001
+	USER_ARTICLE_COLLECT       = 2002
+	USER_ARTICLE_COMMENT       = 2003
+	USER_ARTICLE_COMMENT_LIKE  = 2004
+	USER_ARTICLE_COMMENT_REPLY = 2005
+	// 3XXX 关注相关
+	USER_FOLLOW       = 3001
+	USER_FOLLOW_TOPIC = 3002
+
+	// 4XXX 随笔相关
 )
 
 func SaveMessage(userID, fromUserID bson.ObjectId, content string, messageType int, objectID *bson.ObjectId) (*Message, error) {
@@ -56,6 +63,8 @@ func SaveMessage(userID, fromUserID bson.ObjectId, content string, messageType i
 		return CreateUserMessage(userID, fromUserID, "在文章评论中点赞了你", content, messageType, objectID)
 	case USER_ARTICLE_COMMENT_REPLY:
 		return CreateUserMessage(userID, fromUserID, "在文章评论中回复了你", content, messageType, objectID)
+	case USER_FOLLOW:
+		return CreateUserMessage(userID, fromUserID, "关注了你", content, messageType, objectID)
 	default:
 		return nil, errors.New("not match any message type")
 	}

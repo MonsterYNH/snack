@@ -33,7 +33,7 @@ func init() {
 
 		// 获取用户信息
 		userApi.GET("/info", middleware.JwtAuth(), userController.GetUserInfo)
-		userApi.GET("/info/:id", middleware.JwtAuth(), userController.GetUserInfomation)
+		userApi.GET("/info/:id", middleware.WithUser(), userController.GetUserInfomation)
 
 		// 用户注销登陆
 		userApi.PUT("/logout/:id", middleware.JwtAuth(), userController.UserLogout)
@@ -43,6 +43,8 @@ func init() {
 
 		// 用户关注
 		userApi.PUT("/follow/:id", middleware.JwtAuth(), userController.FollowUser)
+		// 用户关注列表
+		userApi.GET("/followed/:id", middleware.WithUser(), userController.GetUserFollowed)
 	}
 
 	// 消息

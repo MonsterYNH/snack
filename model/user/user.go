@@ -34,8 +34,14 @@ type User struct {
 	UserFollowedNum int             `json:"user_followed_num" bson:"user_followed_num"`
 	FollowedUser    []bson.ObjectId `json:"-" bson:"followed_user"`
 	FollowedUserNum int             `json:"followed_user_num" bson:"followed_user_num"`
-	FollowStatus    string          `json:"follow_status" bson:"-"`
+	FollowStatus    string          `json:"follow_status" bson:"follow_status"`
 }
+
+const (
+	USER_STATUS_UNFOLLOW    = "unfollow"
+	USER_STATUS_FOLLOW      = "follow"
+	USER_STATUS_FOLLOW_EACH = "each"
+)
 
 func CreateUser(user User) (*User, error) {
 	session := db.GetMgoSession()
@@ -163,16 +169,15 @@ func (user *User) GetUserFollowStatus(operatorId string) error {
 	defer session.Close()
 
 	userEntry := User{}
-	user.FollowStatus = "unfollow"
+	user.FollowStatus = USER_STATUS_UNFOLLOW
 	if err := session.DB(db.DB_NAME).C(db.COLL_USER).Find(bson.M{"_id": bson.ObjectIdHex(operatorId), "followed_user": user.ID}).One(&userEntry); err != nil {
-		fmt.Println(err)
 		if err == mgo.ErrNotFound {
 			return nil
 		} else {
 			return err
 		}
 	}
-	user.FollowStatus = "follow"
+	user.FollowStatus = USER_STATUS_FOLLOW
 	if err := session.DB(db.DB_NAME).C(db.COLL_USER).Find(bson.M{"_id": user.ID, "followed_user": operatorId}).One(&userEntry); err != nil {
 		if err == mgo.ErrNotFound {
 			return nil
@@ -180,6 +185,62 @@ func (user *User) GetUserFollowStatus(operatorId string) error {
 			return err
 		}
 	}
-	user.FollowStatus = "each"
+	user.FollowStatus = USER_STATUS_FOLLOW_EACH
 	return nil
+}
+
+func GetUserFollowed(id bson.ObjectId, operatorId *bson.ObjectId, kind string, start, limit int) (map[string]interface{}, error) {
+	session := db.GetMgoSession()
+	defer session.Close()
+
+	if kind != "user_followed" && kind != "followed_user" {
+		return nil, errors.New("wrong parameter kind")
+	}
+
+	aggregate := []bson.M{
+		bson.M{"$match": bson.M{"_id": id}},
+		bson.M{"$unwind": "$" + kind},
+		bson.M{"$skip": (start - 1) * limit},
+		bson.M{"$limit": limit},
+		bson.M{"$lookup": bson.M{"from": "user", "localField": kind, "foreignField": "_id", "as": "user_info"}},
+		bson.M{"$unwind": "$user_info"},
+		bson.M{"$project": bson.M{
+			"_id":               "$user_info._id",
+			"name":              "$user_info.name",
+			"sex":               "$user_info.sex",
+			"avatar":            "$user_info.avatar",
+			"signture":          "$user_info.signture",
+			"user_followed_num": "$user_info.user_followed_num",
+			"followed_user_num": "$user_info.followed_user_num",
+		}},
+	}
+
+	var users []User
+	if err := session.DB(db.DB_NAME).C(db.COLL_USER).Pipe(aggregate).All(&users); err != nil {
+		fmt.Println(err)
+		return nil, err
+	}
+	result := make(map[string]interface{})
+	result["data"] = users
+
+	var total map[string]interface{}
+	if err := session.DB(db.DB_NAME).C(db.COLL_USER).Pipe([]bson.M{
+		bson.M{"$match": bson.M{"_id": id}},
+		bson.M{"$unwind": "$" + kind},
+		bson.M{"$group": bson.M{
+			"_id":   "$" + kind,
+			"total": bson.M{"$sum": 1},
+		}},
+	}).One(&total); err != nil {
+		if err == mgo.ErrNotFound {
+			result["total"] = 0
+			return result, nil
+		} else {
+			return nil, err
+		}
+	}
+
+	result["total"] = total["total"]
+	return result, nil
+
 }

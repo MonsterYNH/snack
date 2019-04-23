@@ -125,8 +125,14 @@ func (controller *CommunityController) CreateCommentReply(c *gin.Context) {
 func (controller *CommunityController) GetCommentByPage(c *gin.Context) {
 	kind := c.Query("kind")
 	objectId := c.Query("object_id")
-	userIdStr, _ := c.Get("user_id")
-	userId := bson.ObjectIdHex(userIdStr.(string))
+	var userId *bson.ObjectId
+	if userIdStr, exist := c.Get("user_id"); exist {
+		id := bson.ObjectIdHex(userIdStr.(string))
+		userId = &id
+	} else {
+		userId = nil
+	}
+
 	start, err := strconv.Atoi(c.Query("start"))
 	if err != nil {
 		c.JSON(http.StatusOK, common.ResponseError(common.PARAMETER_ERR))
@@ -138,7 +144,7 @@ func (controller *CommunityController) GetCommentByPage(c *gin.Context) {
 		return
 	}
 
-	list, err := Comment.GetCommentsByPage(kind, bson.ObjectIdHex(objectId), &userId, start, limit, 5)
+	list, err := Comment.GetCommentsByPage(kind, bson.ObjectIdHex(objectId), userId, start, limit, 5)
 	if err != nil {
 		fmt.Println(err)
 		c.JSON(http.StatusOK, common.ResponseError(common.SERVER_ERROR))

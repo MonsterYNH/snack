@@ -193,5 +193,48 @@ func (controller *UserController) FollowUser(c *gin.Context) {
 		c.JSON(http.StatusOK, common.ResponseError(common.SERVER_ERROR))
 		return
 	}
+
+	if _, err := Message.SaveMessage(bson.ObjectIdHex(userId), bson.ObjectIdHex(operatorId.(string)), "<a>去查看<a>", Message.USER_FOLLOW, nil); err != nil {
+		c.JSON(http.StatusOK, common.ResponseError(common.SERVER_ERROR))
+		return
+	}
 	c.JSON(http.StatusOK, common.ResponseSuccess(gin.H{"status": true}, nil))
+}
+
+func (controller *UserController) GetUserFollowed(c *gin.Context) {
+	id := c.Param("id")
+	var operatorId *bson.ObjectId
+	if operatorIdStr, exist := c.Get("user_id"); exist {
+		id := bson.ObjectIdHex(operatorIdStr.(string))
+		operatorId = &id
+	} else {
+		operatorId = nil
+	}
+	start, err := strconv.Atoi(c.DefaultQuery("start", "1"))
+	if err != nil {
+		c.JSON(http.StatusOK, common.ResponseError(common.PARAMETER_ERR))
+		return
+	}
+	limit, err := strconv.Atoi(c.DefaultQuery("limit", "10"))
+	if err != nil {
+		c.JSON(http.StatusOK, common.ResponseError(common.SERVER_ERROR))
+		return
+	}
+	list := make(map[string]interface{})
+	switch c.Query("type") {
+	case "user_followed":
+		if list, err = User.GetUserFollowed(bson.ObjectIdHex(id), operatorId, "user_followed", start, limit); err != nil {
+			c.JSON(http.StatusOK, common.ResponseError(common.SERVER_ERROR))
+			return
+		}
+	case "followed_user":
+		if list, err = User.GetUserFollowed(bson.ObjectIdHex(id), operatorId, "followed_user", start, limit); err != nil {
+			c.JSON(http.StatusOK, common.ResponseError(common.SERVER_ERROR))
+			return
+		}
+	default:
+		c.JSON(http.StatusOK, common.ResponseError(common.PARAMETER_ERR))
+		return
+	}
+	c.JSON(http.StatusOK, common.ResponseSuccess(list, nil))
 }
