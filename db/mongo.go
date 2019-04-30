@@ -11,7 +11,7 @@ import (
 var MongoSession *mgo.Session
 
 const (
-	MONGO_URI = "localhost:27017"
+	MONGO_URI = "39.104.162.243:27017"
 	DB_NAME   = "blog"
 
 	COLL_USER    = "user"
@@ -19,6 +19,7 @@ const (
 	COLL_BANNER  = "banner"
 	COLL_ARTICLE = "article"
 	COLL_COMMENT = "comment"
+	COLL_LEAVE_MESSAGE = "leave_message"
 )
 
 const (

@@ -4,6 +4,7 @@ import (
 	"snack/controller/article"
 	"snack/controller/community"
 	"snack/controller/index"
+	"snack/controller/leavemessage"
 	"snack/controller/message"
 	"snack/controller/user"
 	middleware "snack/middleware/user"
@@ -76,7 +77,11 @@ func init() {
 		// 获取文章列表
 		articleApi.GET("/list", middleware.WithUser(), articleController.GetArticleList)
 		// 创建文章
-		articleApi.POST("/create", articleController.CreateArticle)
+		articleApi.POST("/create", middleware.JwtAuth(), articleController.CreateArticle)
+		// 获取文章标签
+		articleApi.GET("/tags", articleController.GetArticleTags)
+		articleApi.GET("/type", articleController.GetArticleByType)
+
 	}
 
 	// 社区
@@ -93,5 +98,17 @@ func init() {
 		communityApi.GET("/comment/list", middleware.WithUser(), communityController.GetCommentByPage)
 		// 获取回复列表
 		communityApi.GET("/reply/list", communityController.GetCommentRepliesByPage)
+	}
+
+	// 留言
+	leaveMessageController := leavemessage.LeaveMessageController{}
+	leaveMessageApi := router.Group("/leaveMessage")
+	{
+		// 获取留言列表
+		leaveMessageApi.GET("/list", middleware.WithUser(), leaveMessageController.GetLeaveMessages)
+		// 留言
+		leaveMessageApi.POST("/create/leaveMessage", middleware.WithUser(), leaveMessageController.CreateLeaveMessage)
+		// 评论留言
+		leaveMessageApi.POST("/comment", middleware.WithUser(), leaveMessageController.CommentLeaveMessage)
 	}
 }
