@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"errors"
 	"net/http"
 	"snack/controller/common"
 
@@ -22,12 +23,12 @@ func JwtAuth() gin.HandlerFunc {
 		token := c.Request.Header.Get("authorization")
 		customClaims, code := ParseToken(token)
 		if code > 0 && customClaims == nil {
-			c.JSON(http.StatusOK, common.ResponseError(code))
+			c.JSON(http.StatusOK, common.ResponseError(code, errors.New("auth failed")))
 			c.Abort()
 			return
 		}
 		if !bson.IsObjectIdHex(customClaims.ID) {
-			c.JSON(http.StatusOK, common.ResponseError(common.ID_NOT_EXIST))
+			c.JSON(http.StatusOK, common.ResponseError(common.ID_NOT_EXIST, errors.New("jwt auth: user not exist")))
 			c.Abort()
 			return
 		}

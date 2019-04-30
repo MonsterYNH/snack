@@ -13,6 +13,7 @@ type Article struct {
 	Tags            []string        `json:"tags" bson:"tags"`
 	Images          []string        `json:"images" bson:"images"`
 	Title           string          `json:"title" bson:"title"`
+	Description     string          `json:"description" bson:"description"`
 	Content         string          `json:"content" bson:"content"`
 	CreateUser      bson.ObjectId   `json:"create_user" bson:"create_user"`
 	LikeUsers       []bson.ObjectId `json:"-" bson:"like_users"`
@@ -33,6 +34,7 @@ type ArticleEntry struct {
 	Images           []string        `json:"images" bson:"images"`
 	Title            string          `json:"title" bson:"title"`
 	Content          string          `json:"content" bson:"content"`
+	Description      string          `json:"description" bson:"description"`
 	CreateUser       bson.ObjectId   `json:"create_user" bson:"create_user"`
 	LikeUsers        []bson.ObjectId `json:"-" bson:"like_users"`
 	LikeUsersNum     int             `json:"like_users_num" bson:"like_users_num"`
@@ -67,12 +69,18 @@ func CreateArticle(article Article) error {
 	return session.DB(db.DB_NAME).C(db.COLL_ARTICLE).Insert(article)
 }
 
-func GetArticleListByTag(tag string, userID *bson.ObjectId, start, limit int) ([]ArticleEntry, error) {
+func GetArticleListByTag(tags []string, userID *bson.ObjectId, start, limit int) (map[string]interface{}, error) {
 	session := db.GetMgoSession()
 	defer session.Close()
 
+	result := make(map[string]interface{})
 	articles := make([]ArticleEntry, 0)
-	match := bson.M{"status": 0, "tags": bson.M{"$in": []string{tag}}}
+	match := bson.M{}
+	if len(tags) == 0 {
+		match = bson.M{"status": 0}
+	} else {
+		match = bson.M{"status": 0, "tags": bson.M{"$in": tags}}
+	}
 	err := session.DB(db.DB_NAME).C(db.COLL_ARTICLE).Pipe([]bson.M{
 		bson.M{"$match": match},
 		bson.M{"$lookup": bson.M{"from": "user", "localField": "create_user", "foreignField": "_id", "as": "user"}},
@@ -81,7 +89,7 @@ func GetArticleListByTag(tag string, userID *bson.ObjectId, start, limit int) ([
 			"tags":               "$tags",
 			"images":             "$images",
 			"title":              "$title",
-			"content":            "$content",
+			"content":            "$description",
 			"like_users_num":     "$like_users_num",
 			"collect_users_num":  "$collect_users_num",
 			"create_time":        1,
@@ -101,7 +109,13 @@ func GetArticleListByTag(tag string, userID *bson.ObjectId, start, limit int) ([
 	if err != nil {
 		return nil, err
 	}
-	return articles, err
+	if total, err := session.DB(db.DB_NAME).C(db.COLL_ARTICLE).Find(match).Count(); err != nil {
+		return nil, err
+	} else {
+		result["data"] = articles
+		result["total"] = total
+	}
+	return result, err
 }
 
 func GetHotArticle(start, limit, sort int) (map[string]interface{}, error) {
@@ -119,7 +133,7 @@ func GetHotArticle(start, limit, sort int) (map[string]interface{}, error) {
 			"tags":               "$tags",
 			"images":             "$images",
 			"title":              "$title",
-			"content":            "$content",
+			"content":            "$description",
 			"like_users_num":     "$like_users_num",
 			"collect_users_num":  "$collect_users_num",
 			"create_time":        1,
@@ -161,7 +175,7 @@ func GetNewArticle(start, limit, sort int) (map[string]interface{}, error) {
 			"tags":               "$tags",
 			"images":             "$images",
 			"title":              "$title",
-			"content":            "$content",
+			"content":            "$description",
 			"like_users_num":     "$like_users_num",
 			"collect_users_num":  "$collect_users_num",
 			"create_time":        1,
@@ -203,7 +217,7 @@ func GetRecommendArticle(start, limit int) (map[string]interface{}, error) {
 			"tags":               "$tags",
 			"images":             "$images",
 			"title":              "$title",
-			"content":            "$content",
+			"content":            "$description",
 			"like_users_num":     "$like_users_num",
 			"collect_users_num":  "$collect_users_num",
 			"create_time":        1,
@@ -230,6 +244,29 @@ func GetRecommendArticle(start, limit int) (map[string]interface{}, error) {
 	return result, err
 }
 
+func GetSameArticle(id bson.ObjectId) (map[string]interface{}, error) {
+	session := db.GetMgoSession()
+	defer session.Close()
+
+	articles := make([]ArticleEntry, 0)
+	article := ArticleEntry{}
+	if err := session.DB(db.DB_NAME).C(db.COLL_ARTICLE).Find(bson.M{"_id": id, "status": 0}).One(&article); err != nil {
+		return nil, err
+	}
+	match := bson.M{"status": 0, "tags": bson.M{"$in": article.Tags}}
+	if err := session.DB(db.DB_NAME).C(db.COLL_ARTICLE).Find(match).All(&articles); err != nil {
+		return nil, err
+	}
+	result := make(map[string]interface{})
+	total, err := session.DB(db.DB_NAME).C(db.COLL_ARTICLE).Find(match).Count()
+	if err != nil {
+		return nil, err
+	}
+	result["data"] = articles
+	result["total"] = total
+	return result, nil
+}
+
 func GetArticleCountByTag(tag string) (int, error) {
 	session := db.GetMgoSession()
 	defer session.Close()
@@ -238,13 +275,38 @@ func GetArticleCountByTag(tag string) (int, error) {
 	return session.DB(db.DB_NAME).C(db.COLL_ARTICLE).Find(match).Count()
 }
 
-func GetArticleById(id bson.ObjectId) (Article, error) {
+func GetArticleById(id bson.ObjectId) (*ArticleEntry, error) {
 	session := db.GetMgoSession()
 	defer session.Close()
 
-	article := Article{}
-	err := session.DB(db.DB_NAME).C(db.COLL_ARTICLE).FindId(id).One(&article)
-	return article, err
+	article := ArticleEntry{}
+	match := bson.M{"_id": id, "status": 0}
+	aggregate := []bson.M{
+		bson.M{"$match": match},
+		bson.M{"$lookup": bson.M{"from": "user", "localField": "create_user", "foreignField": "_id", "as": "user"}},
+		bson.M{"$unwind": "$user"},
+		bson.M{"$project": bson.M{
+			"tags":               "$tags",
+			"images":             "$images",
+			"title":              "$title",
+			"content":            "$content",
+			"description":        "$description",
+			"like_users_num":     "$like_users_num",
+			"collect_users_num":  "$collect_users_num",
+			"create_time":        1,
+			"update_time":        1,
+			"create_user":        "$create_user",
+			"create_user_name":   "$user.name",
+			"create_user_avatar": "$user.avatar",
+			"comment_num":        "$comment_num",
+			"read_num":           "$read_num",
+		}},
+	}
+	if err := session.DB(db.DB_NAME).C(db.COLL_ARTICLE).Pipe(aggregate).One(&article); err != nil {
+		return nil, err
+	}
+	err := session.DB(db.DB_NAME).C(db.COLL_ARTICLE).Update(match, bson.M{"$inc": bson.M{"read_num": 1}})
+	return &article, err
 }
 
 func LikeArticle(id, userID bson.ObjectId, option int) (int, int, error) {

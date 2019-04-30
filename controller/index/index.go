@@ -14,7 +14,7 @@ type IndexController struct{}
 func (index *IndexController) GetBanner(c *gin.Context) {
 	banners, err := model.GetBannerByType(db.TYPE_BANNER_HOME)
 	if err != nil {
-		c.JSON(http.StatusOK, common.ResponseError(common.SERVER_ERROR))
+		c.JSON(http.StatusOK, common.ResponseError(common.SERVER_ERROR, err))
 		return
 	}
 	c.JSON(http.StatusOK, common.ResponseSuccess(banners, nil))

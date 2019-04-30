@@ -204,3 +204,35 @@ func LikeCommentReply(commentId, replyId, userId bson.ObjectId) error {
 
 	return session.DB(db.DB_NAME).C(db.COLL_COMMENT).Update(bson.M{"_id": commentId, "comments._id": replyId}, bson.M{"$inc": bson.M{"comments.$.like_num": 1}, "$addToSet": bson.M{"like_users": userId}})
 }
+
+// func GetNewArticleComment(start, limit int) (map[string]interface{}, error) {
+// 	session := db.GetMgoSession()
+// 	defer session.Close()
+
+// 	replies := make([]Reply, 0)
+// 	if err := session.DB(db.DB_NAME).C(db.COLL_COMMENT).Pipe([]bson.M{
+// 		bson.M{"$unwind": "$reply"},
+// 		bson.M{"$sort": bson.M{"create_time": -1}},
+// 		bson.M{"$skip": (start-1)*limit},
+// 		bson.M{"$limit": limit},
+// 		bson.M{"$project": bson.M{
+// 			"_id": 0,
+// 			"id": "$_id",
+// 			"content": "$reply.content",
+// 			"user": "$user",
+// 			"user_avatar": "$user_avatar",
+// 			"create_time": "$create_time",
+// 		}},
+// 	}).All(replies); err != nil {
+// 		return nil, err
+// 	}
+// 	var total int
+// 	if err := session.DB(db.DB_NAME).C(db.COLL_COMMENT).Pipe([]bson.M{
+// 		bson.M{"$unwind": "$reply"},
+// 		bson,M{"$group": bson.M{
+// 			"total": bson.M{"$sum": 1},
+// 		}}
+// 	}).One(); err != nil {
+// 		return nil, err
+// 	}
+// }

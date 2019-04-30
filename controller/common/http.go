@@ -67,11 +67,13 @@ func ResponseSuccess(data, token interface{}) CommonResponse {
 	return response
 }
 
-func ResponseError(code int) CommonResponse {
+func ResponseError(code int, err error) CommonResponse {
 	message, exist := codeMessageMap[code]
 	if !exist {
 		message = "Unknow message"
 		log.Println("Error: unknow message code: ", code)
+	} else {
+		log.Println("ERROR: ", err)
 	}
 	return CommonResponse{
 		Code:    code,
