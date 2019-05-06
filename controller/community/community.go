@@ -32,7 +32,8 @@ func (controller *CommunityController) CommunityOption(c *gin.Context) {
 
 	switch optionJson.Kind {
 	case "article":
-		article, err := Article.GetArticleById(bson.ObjectIdHex(id))
+		user := bson.ObjectIdHex(userID.(string))
+		article, err := Article.GetArticleById(bson.ObjectIdHex(id), &user)
 		if err != nil {
 			c.JSON(http.StatusOK, common.ResponseError(common.SERVER_ERROR, err))
 			return

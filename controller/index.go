@@ -80,10 +80,12 @@ func init() {
 		articleApi.POST("/create", middleware.JwtAuth(), articleController.CreateArticle)
 		// 获取文章标签
 		articleApi.GET("/tags", articleController.GetArticleTags)
+		// 获取文章类别
+		articleApi.GET("/categories", articleController.GetArticleCategories)
 		// 获取文章列表
-		articleApi.GET("/type", articleController.GetArticleByType)
+		articleApi.GET("/type", middleware.WithUser(), articleController.GetArticleByType)
 		// 获取文章详情
-		articleApi.GET("/detail/:id", articleController.GetArticleById)
+		articleApi.GET("/detail/:id", middleware.WithUser(), articleController.GetArticleById)
 	}
 
 	// 社区

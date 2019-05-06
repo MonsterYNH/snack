@@ -55,20 +55,7 @@ func (controller *UserController) UserLogin(c *gin.Context) {
 		return
 	}
 	query := make(map[string]interface{})
-	switch loginEntry.Type {
-	case "account":
-		// TODO 账号校验 验证码校验
-		query["account"] = loginEntry.Account
-	case "email":
-		// TODO 邮件校验 验证码校验
-		query["email"] = loginEntry.Account
-	case "phone":
-		// TODO 手机校验 验证码校验
-		query["phone"] = loginEntry.Account
-	default:
-		c.JSON(http.StatusOK, common.ResponseError(common.PARAMETER_ERR, errors.New("account type not support")))
-		return
-	}
+	query["account"] = loginEntry.Account
 	user, err := User.GetUser(query)
 	if err != nil {
 		if err == mgo.ErrNotFound {

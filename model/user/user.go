@@ -215,7 +215,7 @@ func GetUserFollowed(id bson.ObjectId, operatorId *bson.ObjectId, kind string, s
 		}},
 	}
 
-	var users []User
+	users := make([]User, 0)
 	if err := session.DB(db.DB_NAME).C(db.COLL_USER).Pipe(aggregate).All(&users); err != nil {
 		fmt.Println(err)
 		return nil, err

@@ -47,7 +47,19 @@ type ArticleController struct{}
 
 func (controller *ArticleController) GetArticleById(c *gin.Context) {
 	id := c.Param("id")
-	article, err := Article.GetArticleById(bson.ObjectIdHex(id))
+	userIDStr, exist := c.Get("user_id")
+	var (
+		article *Article.ArticleEntry
+		err     error
+	)
+
+	if exist {
+		userID := bson.ObjectIdHex(userIDStr.(string))
+		article, err = Article.GetArticleById(bson.ObjectIdHex(id), &userID)
+	} else {
+		article, err = Article.GetArticleById(bson.ObjectIdHex(id), nil)
+	}
+
 	if err != nil {
 		c.JSON(http.StatusOK, common.ResponseError(common.SERVER_ERROR, err))
 		return
@@ -106,37 +118,54 @@ func (controller *ArticleController) GetArticleByType(c *gin.Context) {
 		c.JSON(http.StatusOK, common.ResponseError(common.PARAMETER_ERR, err))
 		return
 	}
+	var (
+		userID *bson.ObjectId
+	)
+	userIDStr, exist := c.Get("user_id")
+	if exist {
+		userIDTemp := bson.ObjectIdHex(userIDStr.(string))
+		userID = &userIDTemp
+	} else {
+		userID = nil
+	}
 
 	result := make(map[string]interface{}, 0)
 	switch articleType {
 	case "new":
-		result, err = Article.GetNewArticle(start, limit, sort)
+		result, err = Article.GetNewArticle(userID, start, limit, sort)
 		if err != nil {
 			c.JSON(http.StatusOK, common.ResponseError(common.SERVER_ERROR, err))
 			return
 		}
 	case "hot":
-		result, err = Article.GetHotArticle(start, limit, sort)
+		result, err = Article.GetHotArticle(userID, start, limit, sort)
 		if err != nil {
 			c.JSON(http.StatusOK, common.ResponseError(common.SERVER_ERROR, err))
 			return
 		}
 	case "recommend":
-		result, err = Article.GetRecommendArticle(start, limit)
+		result, err = Article.GetRecommendArticle(userID, start, limit)
 		if err != nil {
 			c.JSON(http.StatusOK, common.ResponseError(common.SERVER_ERROR, err))
 			return
 		}
 	case "all":
 		tags := c.QueryArray("tags[]")
-		result, err = Article.GetArticleListByTag(tags, nil, start, limit)
+		result, err = Article.GetArticleListByTag(tags, nil, start, limit, sort)
 		if err != nil {
 			c.JSON(http.StatusOK, common.ResponseError(common.SERVER_ERROR, err))
 			return
 		}
 	case "same":
 		id := c.Query("id")
-		result, err = Article.GetSameArticle(bson.ObjectIdHex(id))
+		result, err = Article.GetSameArticle(bson.ObjectIdHex(id), start, limit)
+		if err != nil {
+			c.JSON(http.StatusOK, common.ResponseError(common.SERVER_ERROR, err))
+			return
+		}
+	case "user":
+		id := c.Query("user_id")
+		result, err = Article.GetArticleByUserId(bson.ObjectIdHex(id), start, limit)
 		if err != nil {
 			c.JSON(http.StatusOK, common.ResponseError(common.SERVER_ERROR, err))
 			return
@@ -146,6 +175,15 @@ func (controller *ArticleController) GetArticleByType(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, common.ResponseSuccess(result, nil))
+}
+
+func (controller *ArticleController) GetArticleCategories(c *gin.Context) {
+	categories, err := Article.GetArticleCategories()
+	if err != nil {
+		c.JSON(http.StatusOK, common.ResponseError(common.SERVER_ERROR, err))
+		return
+	}
+	c.JSON(http.StatusOK, common.ResponseSuccess(categories, nil))
 }
 
 // func (controller *ArticleController) GetNewArticleComment(c *gin.Context) {

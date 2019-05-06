@@ -5,9 +5,6 @@ import (
 )
 
 type UserLoginEntry struct {
-	Type     string `json:"type" binding:"required"`
-	Phone    string `json:"phone"`
-	Email    string `json:"email"`
 	Account  string `json:"account"`
 	Password string `json:"password" binding:"required"`
 }

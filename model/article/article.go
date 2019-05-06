@@ -11,6 +11,7 @@ import (
 type Article struct {
 	ID              bson.ObjectId   `json:"id" bson:"_id"`
 	Tags            []string        `json:"tags" bson:"tags"`
+	Category        string          `json:"category" bson:"category"`
 	Images          []string        `json:"images" bson:"images"`
 	Title           string          `json:"title" bson:"title"`
 	Description     string          `json:"description" bson:"description"`
@@ -56,6 +57,11 @@ type TagEntry struct {
 	Total int    `json:"total" bson:"total"`
 }
 
+type CategoryEntry struct {
+	Category string `json:"category" bson:"category"`
+	Total    int    `json:"total" bson:"total"`
+}
+
 func CreateArticle(article Article) error {
 	session := db.GetMgoSession()
 	defer session.Close()
@@ -69,7 +75,7 @@ func CreateArticle(article Article) error {
 	return session.DB(db.DB_NAME).C(db.COLL_ARTICLE).Insert(article)
 }
 
-func GetArticleListByTag(tags []string, userID *bson.ObjectId, start, limit int) (map[string]interface{}, error) {
+func GetArticleListByTag(tags []string, userID *bson.ObjectId, start, limit, sort int) (map[string]interface{}, error) {
 	session := db.GetMgoSession()
 	defer session.Close()
 
@@ -89,7 +95,7 @@ func GetArticleListByTag(tags []string, userID *bson.ObjectId, start, limit int)
 			"tags":               "$tags",
 			"images":             "$images",
 			"title":              "$title",
-			"content":            "$description",
+			"description":        "$description",
 			"like_users_num":     "$like_users_num",
 			"collect_users_num":  "$collect_users_num",
 			"create_time":        1,
@@ -102,7 +108,7 @@ func GetArticleListByTag(tags []string, userID *bson.ObjectId, start, limit int)
 			"like_status":        bson.M{"$indexOfArray": []interface{}{"$like_users", userID}},
 			"collect_status":     bson.M{"$indexOfArray": []interface{}{"$collect_users", userID}},
 		}},
-		bson.M{"$sort": bson.M{"create_time": -1}},
+		bson.M{"$sort": bson.M{"create_time": sort}},
 		bson.M{"$skip": (start - 1) * limit},
 		bson.M{"$limit": start * limit},
 	}).All(&articles)
@@ -118,7 +124,52 @@ func GetArticleListByTag(tags []string, userID *bson.ObjectId, start, limit int)
 	return result, err
 }
 
-func GetHotArticle(start, limit, sort int) (map[string]interface{}, error) {
+func GetArticleByUserId(userId bson.ObjectId, start, limit int) (map[string]interface{}, error) {
+	session := db.GetMgoSession()
+	defer session.Close()
+
+	articles := make([]ArticleEntry, 0)
+	result := make(map[string]interface{})
+	match := bson.M{"create_user": userId, "status": 0}
+	if err := session.DB(db.DB_NAME).C(db.COLL_ARTICLE).Pipe([]bson.M{
+		bson.M{"$match": match},
+		bson.M{"$lookup": bson.M{"from": "user", "localField": "create_user", "foreignField": "_id", "as": "user"}},
+		bson.M{"$unwind": "$user"},
+		bson.M{"$project": bson.M{
+			"tags":               "$tags",
+			"images":             "$images",
+			"title":              "$title",
+			"description":        "$description",
+			"like_users_num":     "$like_users_num",
+			"collect_users_num":  "$collect_users_num",
+			"create_time":        1,
+			"update_time":        1,
+			"create_user":        "$create_user",
+			"create_user_name":   "$user.name",
+			"create_user_avatar": "$user.avatar",
+			"comment_num":        "$comment_num",
+			"read_num":           "$read_num",
+			"like_status":        bson.M{"$indexOfArray": []interface{}{"$like_users", userId}},
+			"collect_status":     bson.M{"$indexOfArray": []interface{}{"$collect_users", userId}},
+		}},
+		bson.M{"$sort": bson.M{"create_time": -1}},
+		bson.M{"$skip": (start - 1) * limit},
+		bson.M{"$limit": start * limit},
+	}).All(&articles); err != nil {
+		return nil, err
+	}
+	if total, err := session.DB(db.DB_NAME).C(db.COLL_ARTICLE).Find(match).Count(); err != nil {
+		result["total"] = total
+		result["data"] = articles
+		return nil, err
+	} else {
+		result["total"] = total
+		result["data"] = articles
+		return result, err
+	}
+}
+
+func GetHotArticle(userID *bson.ObjectId, start, limit, sort int) (map[string]interface{}, error) {
 	session := db.GetMgoSession()
 	defer session.Close()
 
@@ -133,7 +184,7 @@ func GetHotArticle(start, limit, sort int) (map[string]interface{}, error) {
 			"tags":               "$tags",
 			"images":             "$images",
 			"title":              "$title",
-			"content":            "$description",
+			"description":        "$description",
 			"like_users_num":     "$like_users_num",
 			"collect_users_num":  "$collect_users_num",
 			"create_time":        1,
@@ -143,6 +194,8 @@ func GetHotArticle(start, limit, sort int) (map[string]interface{}, error) {
 			"create_user_avatar": "$user.avatar",
 			"comment_num":        "$comment_num",
 			"read_num":           "$read_num",
+			"like_status":        bson.M{"$indexOfArray": []interface{}{"$like_users", userID}},
+			"collect_status":     bson.M{"$indexOfArray": []interface{}{"$collect_users", userID}},
 		}},
 		bson.M{"$sort": bson.M{"read_num": sort}},
 		bson.M{"$skip": (start - 1) * limit},
@@ -160,7 +213,7 @@ func GetHotArticle(start, limit, sort int) (map[string]interface{}, error) {
 	return result, err
 }
 
-func GetNewArticle(start, limit, sort int) (map[string]interface{}, error) {
+func GetNewArticle(userID *bson.ObjectId, start, limit, sort int) (map[string]interface{}, error) {
 	session := db.GetMgoSession()
 	defer session.Close()
 
@@ -175,7 +228,7 @@ func GetNewArticle(start, limit, sort int) (map[string]interface{}, error) {
 			"tags":               "$tags",
 			"images":             "$images",
 			"title":              "$title",
-			"content":            "$description",
+			"description":        "$description",
 			"like_users_num":     "$like_users_num",
 			"collect_users_num":  "$collect_users_num",
 			"create_time":        1,
@@ -185,6 +238,8 @@ func GetNewArticle(start, limit, sort int) (map[string]interface{}, error) {
 			"create_user_avatar": "$user.avatar",
 			"comment_num":        "$comment_num",
 			"read_num":           "$read_num",
+			"like_status":        bson.M{"$indexOfArray": []interface{}{"$like_users", userID}},
+			"collect_status":     bson.M{"$indexOfArray": []interface{}{"$collect_users", userID}},
 		}},
 		bson.M{"$sort": bson.M{"create_time": sort}},
 		bson.M{"$skip": (start - 1) * limit},
@@ -202,7 +257,7 @@ func GetNewArticle(start, limit, sort int) (map[string]interface{}, error) {
 	return result, err
 }
 
-func GetRecommendArticle(start, limit int) (map[string]interface{}, error) {
+func GetRecommendArticle(userID *bson.ObjectId, start, limit int) (map[string]interface{}, error) {
 	session := db.GetMgoSession()
 	defer session.Close()
 
@@ -217,7 +272,7 @@ func GetRecommendArticle(start, limit int) (map[string]interface{}, error) {
 			"tags":               "$tags",
 			"images":             "$images",
 			"title":              "$title",
-			"content":            "$description",
+			"description":        "$description",
 			"like_users_num":     "$like_users_num",
 			"collect_users_num":  "$collect_users_num",
 			"create_time":        1,
@@ -227,6 +282,8 @@ func GetRecommendArticle(start, limit int) (map[string]interface{}, error) {
 			"create_user_avatar": "$user.avatar",
 			"comment_num":        "$comment_num",
 			"read_num":           "$read_num",
+			"like_status":        bson.M{"$indexOfArray": []interface{}{"$like_users", userID}},
+			"collect_status":     bson.M{"$indexOfArray": []interface{}{"$collect_users", userID}},
 		}},
 		bson.M{"$sort": bson.M{"weight": -1}},
 		bson.M{"$skip": (start - 1) * limit},
@@ -244,7 +301,7 @@ func GetRecommendArticle(start, limit int) (map[string]interface{}, error) {
 	return result, err
 }
 
-func GetSameArticle(id bson.ObjectId) (map[string]interface{}, error) {
+func GetSameArticle(id bson.ObjectId, start, limit int) (map[string]interface{}, error) {
 	session := db.GetMgoSession()
 	defer session.Close()
 
@@ -254,7 +311,7 @@ func GetSameArticle(id bson.ObjectId) (map[string]interface{}, error) {
 		return nil, err
 	}
 	match := bson.M{"status": 0, "tags": bson.M{"$in": article.Tags}}
-	if err := session.DB(db.DB_NAME).C(db.COLL_ARTICLE).Find(match).All(&articles); err != nil {
+	if err := session.DB(db.DB_NAME).C(db.COLL_ARTICLE).Find(match).Skip((start - 1) * limit).Limit(start * limit).All(&articles); err != nil {
 		return nil, err
 	}
 	result := make(map[string]interface{})
@@ -275,7 +332,7 @@ func GetArticleCountByTag(tag string) (int, error) {
 	return session.DB(db.DB_NAME).C(db.COLL_ARTICLE).Find(match).Count()
 }
 
-func GetArticleById(id bson.ObjectId) (*ArticleEntry, error) {
+func GetArticleById(id bson.ObjectId, userID *bson.ObjectId) (*ArticleEntry, error) {
 	session := db.GetMgoSession()
 	defer session.Close()
 
@@ -300,6 +357,8 @@ func GetArticleById(id bson.ObjectId) (*ArticleEntry, error) {
 			"create_user_avatar": "$user.avatar",
 			"comment_num":        "$comment_num",
 			"read_num":           "$read_num",
+			"like_status":        bson.M{"$indexOfArray": []interface{}{"$like_users", userID}},
+			"collect_status":     bson.M{"$indexOfArray": []interface{}{"$collect_users", userID}},
 		}},
 	}
 	if err := session.DB(db.DB_NAME).C(db.COLL_ARTICLE).Pipe(aggregate).One(&article); err != nil {
@@ -434,4 +493,25 @@ func GetArticleTags() ([]TagEntry, error) {
 		return nil, err
 	}
 	return tags, nil
+}
+
+func GetArticleCategories() ([]CategoryEntry, error) {
+	session := db.GetMgoSession()
+	defer session.Close()
+
+	aggregate := []bson.M{
+		bson.M{"$group": bson.M{
+			"_id":   "$category",
+			"total": bson.M{"$sum": 1},
+		}},
+		bson.M{"$project": bson.M{
+			"category": "$_id",
+			"total":    "$total",
+		}},
+	}
+	categories := make([]CategoryEntry, 0)
+	if err := session.DB(db.DB_NAME).C(db.COLL_ARTICLE).Pipe(aggregate).All(&categories); err != nil {
+		return nil, err
+	}
+	return categories, nil
 }
