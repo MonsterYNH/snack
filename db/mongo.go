@@ -11,14 +11,14 @@ import (
 var MongoSession *mgo.Session
 
 const (
-	MONGO_URI = "39.104.162.243:27017"
+	MONGO_URI = "172.17.0.2:27017"
 	DB_NAME   = "blog"
 
-	COLL_USER    = "user"
-	COLL_MESSAGE = "message"
-	COLL_BANNER  = "banner"
-	COLL_ARTICLE = "article"
-	COLL_COMMENT = "comment"
+	COLL_USER          = "user"
+	COLL_MESSAGE       = "message"
+	COLL_BANNER        = "banner"
+	COLL_ARTICLE       = "article"
+	COLL_COMMENT       = "comment"
 	COLL_LEAVE_MESSAGE = "leave_message"
 )
 

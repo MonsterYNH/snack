@@ -1,7 +1,9 @@
 package main
 
 import (
-	"fmt"
+	"log"
+	"net/http"
+	"snack/controller"
 )
 
 func main() {
@@ -47,7 +49,7 @@ func main() {
 	// 	}
 
 	// }
-
-	fmt.Println("杨嘻嘻嘻")
-
+	log.Println("Server start on port 5000")
+	router := controller.GetRouter()
+	http.ListenAndServe("0.0.0.0:5000", router)
 }
