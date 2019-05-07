@@ -3,6 +3,7 @@ package db
 import (
 	"fmt"
 	"reflect"
+	"snack/global"
 
 	mgo "gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
@@ -11,8 +12,7 @@ import (
 var MongoSession *mgo.Session
 
 const (
-	MONGO_URI = "172.17.0.2:27017"
-	DB_NAME   = "blog"
+	DB_NAME = "blog"
 
 	COLL_USER          = "user"
 	COLL_MESSAGE       = "message"
@@ -42,7 +42,7 @@ const (
 
 func init() {
 	var err error
-	MongoSession, err = mgo.Dial(MONGO_URI)
+	MongoSession, err = mgo.Dial(global.MONGO_URL)
 	if err != nil {
 		panic(fmt.Sprintf("Error: connect to mongo db failed, error: %s", err))
 	}
