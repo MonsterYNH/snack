@@ -4,6 +4,7 @@ import (
 	"snack/controller/article"
 	"snack/controller/community"
 	"snack/controller/index"
+	"snack/controller/leavemessage"
 	"snack/controller/message"
 	"snack/controller/user"
 	middleware "snack/middleware/user"
@@ -104,14 +105,14 @@ func init() {
 	}
 
 	// 留言
-	// leaveMessageController := leavemessage.LeaveMessageController{}
-	// leaveMessageApi := router.Group("/leaveMessage")
-	// {
-	// 	// 获取留言列表
-	// 	leaveMessageApi.GET("/list", middleware.WithUser(), leaveMessageController.GetLeaveMessages)
-	// 	// 留言
-	// 	leaveMessageApi.POST("/create/leaveMessage", middleware.WithUser(), leaveMessageController.CreateLeaveMessage)
-	// 	// 评论留言
-	// 	leaveMessageApi.POST("/comment", middleware.WithUser(), leaveMessageController.CommentLeaveMessage)
-	// }
+	leaveMessageController := leavemessage.LeaveMessageController{}
+	leaveMessageApi := router.Group("/leaveMessage")
+	{
+		// 获取留言列表
+		leaveMessageApi.GET("/list", middleware.WithUser(), leaveMessageController.GetLeaveMessages)
+		// 留言
+		leaveMessageApi.POST("/create/leaveMessage", middleware.WithUser(), leaveMessageController.CreateLeaveMessage)
+		// 评论留言
+		leaveMessageApi.POST("/comment", middleware.WithUser(), leaveMessageController.CommentLeaveMessage)
+	}
 }
