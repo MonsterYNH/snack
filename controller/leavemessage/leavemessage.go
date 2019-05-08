@@ -4,7 +4,7 @@ import (
 	"log"
 	"net/http"
 	"snack/controller/common"
-	LeaveMessage "snack/model/leavemessage"
+	LeaveMessage "snack/model/lmessage"
 	"strconv"
 
 	"github.com/gin-gonic/gin"

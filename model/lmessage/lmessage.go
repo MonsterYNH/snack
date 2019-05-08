@@ -1,4 +1,4 @@
-package leavemessage
+package lmessage
 
 import (
 	"snack/db"
