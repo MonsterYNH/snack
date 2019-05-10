@@ -9,8 +9,6 @@ WORKDIR /go/src/snack/
 COPY . /go/src/snack/
 #编译，编译成可执行文件
 RUN go build /go/src/snack/main.go
-# 设置 PORT 环境变量
-ENV PORT 5000
 # 给主机暴露 80 端口，这样外部网络可以访问你的应用
 EXPOSE 5000
 # 告诉 Docker 启动容器运行的命令

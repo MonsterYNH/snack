@@ -7,6 +7,7 @@ import (
 	"snack/controller/leavemessage"
 	"snack/controller/message"
 	"snack/controller/user"
+	"snack/controller/wechat"
 	middleware "snack/middleware/user"
 
 	"github.com/gin-gonic/gin"
@@ -25,7 +26,7 @@ func GetRouter() *gin.Engine {
 func init() {
 	// 用户
 	userController := user.UserController{}
-	userApi := router.Group("/user")
+	userApi := router.Group("/api/user")
 	{
 		// 用户登陆
 		userApi.POST("/login", userController.UserLogin)
@@ -47,10 +48,12 @@ func init() {
 		// 用户关注列表
 		userApi.GET("/followed/:id", middleware.WithUser(), userController.GetUserFollowed)
 	}
+	wechatController := wechat.WxConnectController{}
+	router.GET("/api/wx", wechatController.Get)
 
 	// 消息
 	messageController := message.MessageController{}
-	messageApi := router.Group("/message")
+	messageApi := router.Group("/api/message")
 	{
 		// 获取消息列表
 		messageApi.GET("/list", middleware.JwtAuth(), messageController.GetMessageList)
@@ -64,7 +67,7 @@ func init() {
 
 	// 主页
 	indexController := index.IndexController{}
-	indexApi := router.Group("/common")
+	indexApi := router.Group("/api/common")
 	{
 		// 获取主页Banner
 		indexApi.GET("/banner/list", indexController.GetBanner)
@@ -72,7 +75,7 @@ func init() {
 
 	// 文章
 	articleController := article.ArticleController{}
-	articleApi := router.Group("/article")
+	articleApi := router.Group("/api/article")
 	{
 		// 获取文章列表
 		//articleApi.GET("/list", middleware.WithUser(), articleController.GetArticleList)
@@ -90,7 +93,7 @@ func init() {
 
 	// 社区
 	communityController := community.CommunityController{}
-	communityApi := router.Group("/community")
+	communityApi := router.Group("/api/community")
 	{
 		// 社区通用操作
 		communityApi.POST("/option/:id", middleware.JwtAuth(), communityController.CommunityOption)
@@ -106,7 +109,7 @@ func init() {
 
 	// 留言
 	leaveMessageController := leavemessage.LeaveMessageController{}
-	leaveMessageApi := router.Group("/leaveMessage")
+	leaveMessageApi := router.Group("/api/leaveMessage")
 	{
 		// 获取留言列表
 		leaveMessageApi.GET("/list", middleware.WithUser(), leaveMessageController.GetLeaveMessages)
