@@ -3,7 +3,7 @@ package global
 import "os"
 
 var (
-	MONGO_URL   = "39.104.162.243:27017"
+	MONGO_URL   = "localhost:27017"
 	SERVER_PORT = "5000"
 )
 

@@ -8,6 +8,7 @@ import (
 	"snack/controller/message"
 	"snack/controller/user"
 	"snack/controller/wechat"
+	"snack/middleware/common"
 	middleware "snack/middleware/user"
 
 	"github.com/gin-gonic/gin"
@@ -17,6 +18,8 @@ var router *gin.Engine
 
 func init() {
 	router = gin.Default()
+	router.Use(common.CheckIp)
+	router.Use(common.ApiCount)
 }
 
 func GetRouter() *gin.Engine {

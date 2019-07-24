@@ -20,6 +20,7 @@ const (
 	COLL_ARTICLE       = "article"
 	COLL_COMMENT       = "comment"
 	COLL_LEAVE_MESSAGE = "leave_message"
+	COLL_IP            = "ip"
 )
 
 const (
