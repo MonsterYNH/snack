@@ -6,50 +6,52 @@ services:
       - 3001:5000
     restart: always
     environment:
-      - MONGO_URL=172.25.0.4:27017
+      - MONGO_URL=172.26.0.4:27017
     depends_on:
       - blog-mongodb
     networks:
       extnetwork:
-        ipv4_address: 172.25.0.2
+        ipv4_address: 172.26.0.2
   blog-web:
     image: runnermonster/blog-web:latest
     ports:
       - 3000:3000
     restart: always
+    volumes:
+      - /Users/yelong/node-work-space/client/nginx.conf:/etc/nginx/nginx.conf
     networks:
       extnetwork:
-        ipv4_address: 172.25.0.3
+        ipv4_address: 172.26.0.3
   blog-mongodb:
     image: mongo:latest
     ports:
       - 27017:27017
     restart: always
-    volumes:
-      - /usr/local/workspace/mongo-data:/data/db
+#    volumes:
+#      - /usr/local/workspace/mongo-data:/data/db
     networks:
       extnetwork:
-        ipv4_address: 172.25.0.4
+        ipv4_address: 172.26.0.4
   blog-media:
-    image: runnermonster/media:latest
+    image: runnermonster/blog-media:latest
     ports:
       - 3002:5001
     restart: always
     networks:
       extnetwork:
-        ipv4_address: 172.25.0.5
+        ipv4_address: 172.26.0.5
   blog-nginx:
     image: nginx:latest
     ports:
       - 80:80
     restart: always
-    volumes:
-      - /usr/local/workspace/nginx:/etc/nginx/conf.d/
+#    volumes:
+#      - /usr/local/workspace/nginx:/etc/nginx/conf.d/
     networks:
       extnetwork:
-        ipv4_address: 172.25.0.6
+        ipv4_address: 172.26.0.6
 networks:
   extnetwork:
     ipam:
       config:
-        - subnet: 172.25.0.0/16
+        - subnet: 172.26.0.0/16
